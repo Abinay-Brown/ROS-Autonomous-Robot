@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+
+<launch>
+  
+  <param name="robot_description" textfile="$(find robot_description)/urdf/robot_base.urdf" />
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find robot_gazebo)/worlds/slam.world"/>
+  </include>
+  
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-param robot_description -urdf -model robot_base" />
+    <rosparam command="load" file="$(find robot_description)/config/control.yaml" />
+  <node name="base_controller_spawner" pkg="controller_manager" type="spawner" args="robot_base_joint_publisher robot_base_velocity_controller"/>
+  
+  <node pkg="tf" type="static_transform_publisher" name="base_link_broadcaster" args="0 0 0 0 0 0 base_footprint base_link 10" />
+
+  <node pkg="tf" type="static_transform_publisher" name="imu_broadcaster" args="0.125 0 0.0765 0 0 0 base_footprint imu_frame 10" />
+  <node pkg="topic_tools" type="relay" name="relay_odom" args="/robot_base_velocity_controller/odom /odom" />
+  
+  
+  <node pkg="robot_pose_ekf" type="robot_pose_ekf" name="robot_pose_ekf">
+    <param name="output_frame" value="odom"/>
+    <param name="base_footprint_frame" value="base_footprint"/>
+    <param name="freq" value="10.0"/>
+    <param name="sensor_timeout" value="1.0"/>
+    <param name="odom_used" value="true"/>
+    <param name="imu_used" value="true"/>
+    <param name="vo_used" value="false"/>
+    <param name="gps_used" value="false"/>
+    <param name="debug" value="false"/>
+    <param name="self_diagnose" value="false"/>
+  </node>
+  
+  <remap from= "/cmd_vel" to= "/robot_base_velocity_controller/cmd_vel"/>
+
+  <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop" output="screen">
+  <rosparam>
+  speed: 0.1
+  turn: 0.5
+  </rosparam>
+  </node>
+</launch>

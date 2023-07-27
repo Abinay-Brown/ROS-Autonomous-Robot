@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- Launch RViz -->
+  <include file="$(find urdf_tutorial)/launch/display.launch">
+     <arg name="model" value="$(find robot_description)/urdf/robot_base.urdf"/>
+  </include>
+
+
+  <!-- Transformation Configuration ... Setting Up the Relationships Between Coordinate Frames -->
+  <node pkg="tf" type="static_transform_publisher" name="world_to_map" args="0 0 0 0 0 0 world map 10"/>
+  <node pkg="tf" type="static_transform_publisher" name="laser_broadcaster" args="0 0 0.153 0 0 0 base_link laser_frame 20"/>
+  <node pkg="tf" type="static_transform_publisher" name="imu_broadcaster"   args="0.125 0 0.0765 0 0 0 base_link imu_frame 20" />
+  <node pkg="tf" type="static_transform_publisher" name="base_footprint_broadcaster"   args="0 0 0 0 0 0 base_footprint base_link 20" />
+  
+  <remap from="imu_data" to="imu/data" />
+  <node pkg="topic_tools" type="relay" name="relay_odom" args="/robot_base_velocity_controller/odom /odom" />
+  
+  <node pkg="robot_pose_ekf" type="robot_pose_ekf" name="robot_pose_ekf">
+    <param name="output_frame" value="odom"/>
+    <param name="base_footprint_frame" value="base_footprint"/>
+    <param name="freq" value="50.0"/>
+    <param name="sensor_timeout" value="1.0"/>
+    <param name="odom_used" value="true"/>
+    <param name="imu_used" value="false"/>
+    <param name="vo_used" value="false"/>
+    <param name="gps_used" value="false"/>
+    <param name="debug" value="false"/>
+    <param name="self_diagnose" value="false"/>
+  </node>
+
+  <!-- Map File -->
+  <arg name="map_file" default="$(find robot_navigation)/maps/slam.yaml"/>
+	
+  <!-- Map Server -->
+  <!-- Publish: /map, /map_metadata -->
+  <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)" />
+	
+  <!-- Add AMCL example for differential drive robots for Localization -->
+  <!-- Subscribe: /scan, /tf, /initialpose, /map -->
+  <!-- Publish: /amcl_pose, /particlecloud, /tf -->
+  <include file="$(find amcl)/examples/amcl_diff.launch"/>  
+	
+  <!-- Move Base Node -->
+  <!-- Subscribe: /tf, /map, /scan, /odom, /move_base_simple/goal -->
+  <!-- Publish: /cmd_vel -->
+  <remap from="cmd_vel" to="/robot_base_velocity_controller/cmd_vel"/>
+  
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+    <rosparam file="$(find robot_navigation)/param/costmap_common_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find robot_navigation)/param/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find robot_navigation)/param/local_costmap_params.yaml" command="load"/>
+    <rosparam file="$(find robot_navigation)/param/global_costmap_params.yaml" command="load"/>
+    <rosparam file="$(find robot_navigation)/param/base_local_planner_params.yaml" command="load" />
+  </node>
+
+</launch>
